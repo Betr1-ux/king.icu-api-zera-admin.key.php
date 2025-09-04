@@ -14,9 +14,9 @@
       text-align:center;
     }
     h2 { margin-bottom:10px; }
-    input, button { padding:8px; margin:5px; border-radius:8px; border:none; }
-    input { width:120px; text-align:center; }
-    button { background:#0f0; color:#000; cursor:pointer; font-weight:bold; }
+    input, button { padding:8px; margin:5px; border:none; }
+    input { text-align:center; }
+    button { background:#0f0; color:#000; cursor:pointer; font-weight:bold; border-radius:8px; }
     button:hover { background:#3f3; }
     table { border-collapse:collapse; width:100%; margin-top:15px; }
     th, td { border:1px solid #0f0; padding:6px; text-align:center; }
@@ -40,7 +40,19 @@
       border-radius:12px;
     }
     .loginCard h3 { margin-top:0; margin-bottom:12px; color:#0f0; }
-    .loginInput { width:100%; padding:10px; border-radius:8px; border:1px solid #0f0; background:transparent; color:#0f0; }
+
+    /* ✅ تعديل الإدخال */
+    .loginInput {
+      width: 100%;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid #0f0;
+      background: transparent;
+      color: #0f0;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
     .errorMsg { color:#ff4444; margin-top:8px; display:none; font-weight:bold; }
 
     .tgBtn {
@@ -106,7 +118,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
   import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-  const CORRECT_CODE = "449d4cba-c185-490f-8bfd-2cda209a0f80";
+  const CORRECT_CODE = "2ff9d5cba-c185-430f-83dd-2cda201a00f0";
 
   // Firebase config
   const firebaseConfig = {
@@ -121,23 +133,7 @@
   };
 
   const DAILY_VISITS = 100;
-  const RESET_HOUR = 7; // 7 صباحاً
-
   let app, db;
-
-  // === توقيت مصر UTC+2 ===
-  function getEgyptTime(date = new Date()){
-    return new Date(date.getTime() + (2 * 60 * 60 * 1000));
-  }
-  function getToday7Egypt(){
-    const nowEgypt = getEgyptTime();
-    return new Date(
-      nowEgypt.getFullYear(),
-      nowEgypt.getMonth(),
-      nowEgypt.getDate(),
-      RESET_HOUR,0,0,0
-    ).getTime() - (2*60*60*1000); // نرجع للـ UTC
-  }
 
   // شاشة الدخول
   const loginScreen = document.getElementById("loginScreen");
@@ -165,27 +161,12 @@
 
   async function initVisits(){
     const snap = await get(ref(db, "visits"));
-    const now = new Date();
-    const today7 = getToday7Egypt();
-
     let visitsLeft = DAILY_VISITS;
-    let lastReset = today7;
-    let usedToday = false;
 
     if(snap.exists()){
-      const data = snap.val();
-      visitsLeft = data.visitsLeft ?? DAILY_VISITS;
-      lastReset = data.lastReset || today7;
-      usedToday = data.usedToday || false;
-
-      if(now.getTime() >= today7 && today7 > lastReset && usedToday){
-        visitsLeft = DAILY_VISITS;
-        lastReset = today7;
-        usedToday = false;
-        await set(ref(db, "visits"), { visitsLeft, lastReset, usedToday });
-      }
+      visitsLeft = snap.val().visitsLeft ?? DAILY_VISITS;
     } else {
-      await set(ref(db, "visits"), { visitsLeft, lastReset, usedToday });
+      await set(ref(db, "visits"), { visitsLeft, lastReset: Date.now(), usedToday: false });
     }
     document.getElementById("visitsLeft").innerText = visitsLeft;
   }
@@ -193,23 +174,17 @@
   async function useVisits(count){
     const snap = await get(ref(db, "visits"));
     if(!snap.exists()) return false;
-    let { visitsLeft, lastReset, usedToday } = snap.val();
-    const now = new Date();
-    const today7 = getToday7Egypt();
+    let { visitsLeft } = snap.val();
 
-    if(now.getTime() >= today7 && today7 > lastReset && usedToday){
-      visitsLeft = DAILY_VISITS;
-      lastReset = today7;
-      usedToday = false;
-    }
     if(visitsLeft >= count){
       visitsLeft -= count;
-      usedToday = true;
-      await set(ref(db, "visits"), { visitsLeft, lastReset, usedToday });
+      await set(ref(db, "visits"), { visitsLeft, lastReset: Date.now(), usedToday: true });
       document.getElementById("visitsLeft").innerText = visitsLeft;
+      document.getElementById("visitsBox").style.color = "#0f0";
       return true;
     } else {
-      alert("❌ انتهت زياراتك، انتظر الساعة 7 صباحًا بتوقيت مصر للتجديد");
+      document.getElementById("visitsLeft").innerText = "❌ انتهت الزيارات، برجاء انتظار المسؤول";
+      document.getElementById("visitsBox").style.color = "red";
       return false;
     }
   }
